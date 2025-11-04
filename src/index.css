@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.dark {
+  color-scheme: dark;
+}
+
+.fc {
+  --fc-border-color: #e2e8f0;
+  --fc-button-bg-color: #3b82f6;
+  --fc-button-border-color: #3b82f6;
+  --fc-button-hover-bg-color: #2563eb;
+  --fc-button-hover-border-color: #2563eb;
+  --fc-button-active-bg-color: #1d4ed8;
+  --fc-button-active-border-color: #1d4ed8;
+}
+
+.dark .fc {
+  --fc-border-color: #334155;
+  --fc-page-bg-color: #1e293b;
+  --fc-neutral-bg-color: #0f172a;
+}
+
+.dark .fc-theme-standard td,
+.dark .fc-theme-standard th {
+  border-color: #334155;
+}
+
+.dark .fc-theme-standard .fc-scrollgrid {
+  border-color: #334155;
+}
+
+.dark .fc .fc-daygrid-day-number {
+  color: #cbd5e1;
+}
+
+.dark .fc .fc-col-header-cell-cushion {
+  color: #cbd5e1;
+}
