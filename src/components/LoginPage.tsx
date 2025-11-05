@@ -17,15 +17,14 @@ export function LoginPage({ onToggleMode }: LoginPageProps) {
     setIsLoading(true);
   
     try {
-      await login(email, password); // login handles n8n call & updating mockData.user
-    } catch (error) {
+      await login(email.trim(), password.trim());
+      // Redirect to home on success
+      window.location.href = '/home';
+    } catch (err) {
       alert('Invalid email or password.');
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };  
-  
+      console.error(err);
+    }    
+  };
   
 
   return (

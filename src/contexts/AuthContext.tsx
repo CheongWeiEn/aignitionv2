@@ -48,69 +48,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const TEMP_EMAIL = '1@c.co';
-    const TEMP_PASSWORD = '1';
-    const TEMP_TTL_MS = 1000 * 60 * 60; // 1 hour
-
     try {
-      if (email === TEMP_EMAIL && password === TEMP_PASSWORD) {
-        const tempUser: User = {
-          id: `dev_user_1`,
-          email,
-          name: 'Dev User',
-        };
-
-        const session: StoredSession = {
-          user: tempUser,
-          expiry: Date.now() + TEMP_TTL_MS,
-          isTemp: true,
-        };
-
-        setUser(tempUser);
-        mockUser.id = tempUser.id;
-        mockUser.email = tempUser.email;
-        mockUser.name = tempUser.name;
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-        return;
-      }
-
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL, {
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
+  
+      if (!res.ok) {
+        throw new Error(`Login request failed with status ${res.status}`);
+      }
+  
       const data = await res.json();
-
+  
+      // Check webhook response
       if (!data.username || data.username === '0') {
         throw new Error('Invalid credentials');
       }
-
+  
+      // Create the user session
       const realUser: User = {
         id: data.userId,
         email,
         name: data.username,
       };
-
+  
       const REAL_TTL_MS = 1000 * 60 * 60 * 8; // 8 hours
       const session: StoredSession = {
         user: realUser,
         expiry: Date.now() + REAL_TTL_MS,
         isTemp: false,
       };
-
+  
       setUser(realUser);
       mockUser.id = realUser.id;
       mockUser.email = realUser.email;
       mockUser.name = realUser.name;
-
+  
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  
+      // Return true if needed
+      return true;
+  
     } catch (err) {
       console.error('Login failed:', err);
-      throw err;
+      throw err; // propagate error to component
     }
   };
+  
 
   const signup = async (email: string, password: string, name: string) => {
     try {
