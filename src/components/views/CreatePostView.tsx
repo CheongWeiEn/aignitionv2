@@ -30,74 +30,113 @@ export function CreatePostView() {
     { value: 'facebook', label: 'Facebook' },
   ];
 
+  // MUST RETURN JSON (caption kvp)
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBrandId || !user) return;
-
+  
     setIsGenerating(true);
-
+  
     try {
-      const response = await fetch('https://hongyiii.app.n8n.cloud/webhook-test/f8742ff4-0b44-4bfc-9c46-5978a94629fc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: generatePrompt,
-          platform: generatePlatform,
-          brandVoice: selectedBrand?.brand_voice || 'professional and engaging'
-        })
+      const payload = {
+        prompt: generatePrompt,
+        platform: generatePlatform,
+        brand: selectedBrand?.name,
+        brandId: selectedBrandId,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      };
+  
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_GENERATE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-
-      const data = await response.json();
-      const aiGeneratedCaption = data.caption || data.message || `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey! #Innovation #${selectedBrand?.name}`;
-
-      setMode('custom');
+  
+      if (!res.ok) throw new Error(`n8n responded with ${res.status}`);
+  
+      const data = await res.json();
+      console.log("n8n generate response:", data);
+  
+      const aiGeneratedCaption =
+        data.caption ||
+        `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey!`;
+  
+      setMode("custom");
       setCustomCaption(aiGeneratedCaption);
       setCustomPlatform(generatePlatform);
-    } catch (error) {
-      console.error('Error generating content:', error);
-      const fallbackCaption = `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey! #Innovation #${selectedBrand?.name}`;
-      setMode('custom');
-      setCustomCaption(fallbackCaption);
-      setCustomPlatform(generatePlatform);
+  
+    } catch (err) {
+      console.error("Error calling n8n generate:", err);
+      alert("❌ Failed to contact n8n generate workflow.");
     } finally {
       setIsGenerating(false);
     }
   };
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBrandId || !user) return;
-
+  
     setIsSubmitting(true);
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const scheduledAt = scheduledDate && scheduledTime
-      ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
-      : undefined;
-
-    const newPost: Post = {
-      id: `post_${Date.now()}`,
-      user_id: user.id,
-      brand_id: selectedBrandId,
-      caption: customCaption,
-      platform: customPlatform,
-      status: scheduledAt ? 'approved' : 'draft',
-      scheduled_at: scheduledAt,
-      created_at: new Date().toISOString(),
-    };
-
-    addPost(newPost);
-
-    setCustomCaption('');
-    setScheduledDate('');
-    setScheduledTime('');
-    setImageFile(null);
-    setGeneratePrompt('');
-    setMode('generate');
-
-    setIsSubmitting(false);
+  
+    try {
+      const scheduledAt =
+        scheduledDate && scheduledTime
+          ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+          : undefined;
+  
+      const newPost: Post = {
+        id: `post_${Date.now()}`,
+        user_id: user.id,
+        brand_id: selectedBrandId,
+        caption: customCaption,
+        platform: customPlatform,
+        status: scheduledAt ? "approved" : "draft",
+        scheduled_at: scheduledAt,
+        created_at: new Date().toISOString(),
+      };
+  
+      // Save locally first
+      addPost(newPost);
+  
+      // Send to n8n webhook
+      const formData = new FormData();
+      formData.append("post", JSON.stringify(newPost));
+      if (imageFile) formData.append("image", imageFile);
+  
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SUBMIT, {
+        method: "POST",
+        body: formData,
+      });
+  
+      if (!res.ok) throw new Error(`n8n responded with ${res.status}`);
+  
+      const data = await res.json();
+      console.log("n8n submit response:", data);
+  
+      alert(data.reply || "✅ Post submitted successfully!");
+  
+      // Reset form
+      setCustomCaption("");
+      setScheduledDate("");
+      setScheduledTime("");
+      setImageFile(null);
+      setGeneratePrompt("");
+      setMode("generate");
+  
+    } catch (err) {
+      console.error("Error submitting post:", err);
+      alert("❌ Failed to contact n8n submit workflow.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+  
 
   return (
     <div className="h-full flex flex-col p-6">
