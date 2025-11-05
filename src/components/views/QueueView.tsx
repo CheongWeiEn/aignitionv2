@@ -30,10 +30,44 @@ export function QueueView() {
     );
   };
 
-  const handleApprove = (postId: string) => {
+  const handleApprove = async (postId: string) => {
     const scheduledAt = new Date();
     scheduledAt.setDate(scheduledAt.getDate() + 1);
+  
+    // 1️⃣ Run your existing local approve logic
     approvePost(postId, scheduledAt.toISOString());
+  
+    // 2️⃣ Get the post data to send to n8n
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+  
+    // 3️⃣ Send the post data to your n8n webhook
+    try {
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postId: post.id,
+          caption: post.caption,
+          platform: post.platform,
+          brand_id: post.brand_id,
+          scheduled_at: scheduledAt.toISOString(),
+          status: "approved"
+        }),
+      });
+  
+      // 4️⃣ Handle response
+      if (!res.ok) {
+        console.error("n8n webhook returned error:", res.status);
+        return;
+      }
+  
+      const data = await res.json();
+      console.log("✅ n8n webhook response:", data);
+  
+    } catch (error) {
+      console.error("❌ Failed to contact n8n webhook:", error);
+    }
   };
 
   return (
