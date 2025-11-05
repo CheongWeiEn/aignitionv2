@@ -28,7 +28,7 @@ export function CalendarView() {
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
-  
+
     try {
       // Prepare data for n8n
       const payload = {
@@ -43,26 +43,26 @@ export function CalendarView() {
           posted_at: p.posted_at,
         })),
       };
-  
+
       // Send to n8n
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_PLAN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-  
+
       if (!res.ok) {
         console.error("n8n webhook returned error:", res.status);
         alert("❌ Failed to contact n8n workflow.");
         return;
       }
-  
+
       const data = await res.json();
       console.log("✅ n8n response:", data);
-  
+
       // Optional: show reply message or take further action
       alert(data.reply || "✅ Plan generated successfully via n8n!");
-  
+
     } catch (err) {
       console.error("Error calling n8n:", err);
       alert("❌ Error contacting n8n workflow.");
@@ -70,7 +70,7 @@ export function CalendarView() {
       setIsGenerating(false);
     }
   };
-  
+
 
   return (
     <div className="h-full flex flex-col p-6">

@@ -15,14 +15,41 @@ export function LoginPage({ onToggleMode }: LoginPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+  
     try {
-      await login(email, password);
+      // Send credentials to n8n webhook
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_LOGIN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      if (!res.ok) {
+        throw new Error(`n8n webhook responded with status ${res.status}`);
+      }
+  
+      const data = await res.json();
+      console.log('n8n login response:', data);
+  
+      const username = data.username; // expecting n8n to return { username: "..." } or "0"
+  
+      if (username && username !== "0") {
+        // n8n returned a valid username → proceed with local login
+        await login(email, password);
+        alert(`✅ Welcome, ${username}!`);
+      } else {
+        // n8n returned "0" → block login
+        alert('❌ Login failed. Invalid credentials.');
+      }
+  
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('Error contacting n8n login webhook:', error);
+      alert('❌ An error occurred while logging in.');
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4 transition-colors">
