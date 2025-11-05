@@ -36,15 +36,32 @@ export function CreatePostView() {
 
     setIsGenerating(true);
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const response = await fetch('https://hongyiii.app.n8n.cloud/webhook-test/f8742ff4-0b44-4bfc-9c46-5978a94629fc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: generatePrompt,
+          platform: generatePlatform,
+          brandVoice: selectedBrand?.brand_voice || 'professional and engaging'
+        })
+      });
 
-    const aiGeneratedCaption = `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey! #Innovation #${selectedBrand?.name}`;
+      const data = await response.json();
+      const aiGeneratedCaption = data.caption || data.message || `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey! #Innovation #${selectedBrand?.name}`;
 
-    setMode('custom');
-    setCustomCaption(aiGeneratedCaption);
-    setCustomPlatform(generatePlatform);
-
-    setIsGenerating(false);
+      setMode('custom');
+      setCustomCaption(aiGeneratedCaption);
+      setCustomPlatform(generatePlatform);
+    } catch (error) {
+      console.error('Error generating content:', error);
+      const fallbackCaption = `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey! #Innovation #${selectedBrand?.name}`;
+      setMode('custom');
+      setCustomCaption(fallbackCaption);
+      setCustomPlatform(generatePlatform);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
