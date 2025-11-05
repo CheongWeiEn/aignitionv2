@@ -1,6 +1,7 @@
 import { Brand, Post, Trend, Analytics, User } from '../types';
 
-export const mockUser: User = {
+// Use `let` so we can override it dynamically
+export let user: User = {
   id: 'user_1',
   email: 'demo@example.com',
   name: 'Demo User',
