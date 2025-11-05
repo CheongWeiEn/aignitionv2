@@ -133,22 +133,196 @@ Add credentials in N8N for:
 
 ### Step 4: Connect Application to N8N
 
-1. Update your webhook URLs in the application:
+Below is a complete list of all button functions in the application that need N8N webhook integration:
 
-In `src/components/views/CreatePostView.tsx`, update the AI generation endpoint:
-```typescript
-const response = await fetch('YOUR_N8N_WEBHOOK_URL', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    prompt: generatePrompt,
-    platform: generatePlatform,
-    brandVoice: selectedBrand?.brand_voice
-  })
-});
-```
+#### 1. **Generate Post** Button
+- **Location**: `src/components/views/CreatePostView.tsx` (line 33-48)
+- **Function**: `handleGenerate()`
+- **Description**: Generates AI-powered social media post content based on user prompt and selected platform
+- **Required Payload**:
+  ```typescript
+  {
+    prompt: string,           // User's content topic/description
+    platform: Platform,       // Selected social media platform
+    brandVoice: string        // Brand voice from settings
+  }
+  ```
+- **Expected Response**:
+  ```typescript
+  {
+    caption: string,          // AI-generated post caption
+    hashtags?: string[]       // Suggested hashtags (optional)
+  }
+  ```
+- **Webhook Integration Point**: Replace line 39-41 with:
+  ```typescript
+  const response = await fetch('YOUR_N8N_CONTENT_GENERATOR_WEBHOOK_URL', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: generatePrompt,
+      platform: generatePlatform,
+      brandVoice: selectedBrand?.brand_voice
+    })
+  });
+  const data = await response.json();
+  const aiGeneratedCaption = data.caption;
+  ```
 
-2. For the calendar "Generate Smart Timeline" feature, update the webhook URL in `src/components/views/CalendarView.tsx`
+#### 2. **Schedule & Auto-Post** / **Save as Draft** Button
+- **Location**: `src/components/views/CreatePostView.tsx` (line 50-83)
+- **Function**: `handleSubmit()`
+- **Description**: Submits the post to the database with scheduled time (if provided)
+- **Note**: This function saves to Supabase. Actual posting is handled by N8N's Auto-Post Scheduler workflow
+
+#### 3. **Generate Posts** Button (Multi-Platform)
+- **Location**: `src/components/modals/GeneratePlanModal.tsx` (line 37-66)
+- **Function**: `handleSubmit()`
+- **Description**: Generates multiple posts for different platforms based on a content goal
+- **Required Payload**:
+  ```typescript
+  {
+    contentGoal: string,      // User's content objective
+    platforms: Platform[],    // Array of selected platforms
+    brandVoice: string,       // Brand voice from settings
+    imageUrl?: string         // Optional image URL
+  }
+  ```
+- **Expected Response**:
+  ```typescript
+  {
+    posts: Array<{
+      platform: Platform,
+      caption: string,
+      hashtags?: string[]
+    }>
+  }
+  ```
+- **Webhook Integration Point**: Replace line 43-62 with:
+  ```typescript
+  const response = await fetch('YOUR_N8N_MULTI_PLATFORM_WEBHOOK_URL', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contentGoal: prompt,
+      platforms: platforms,
+      brandVoice: selectedBrand?.brand_voice,
+      imageUrl: imageFile ? await uploadImage(imageFile) : undefined
+    })
+  });
+  const data = await response.json();
+
+  data.posts.forEach((generatedPost, index) => {
+    const newPost: Post = {
+      id: `post_${Date.now()}_${index}`,
+      user_id: user.id,
+      brand_id: selectedBrandId,
+      caption: generatedPost.caption,
+      platform: generatedPost.platform,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+    };
+    addPost(newPost);
+  });
+  ```
+
+#### 4. **Generate Timeline** Button
+- **Location**: `src/components/views/CalendarView.tsx` (line 29-32)
+- **Function**: `handleGeneratePlan()`
+- **Description**: Generates an optimized content posting timeline using AI
+- **Required Payload**:
+  ```typescript
+  {
+    brandId: string,
+    existingPosts: Post[],    // Current scheduled posts
+    brandVoice: string,
+    timeframe: string         // e.g., "next_30_days"
+  }
+  ```
+- **Expected Response**:
+  ```typescript
+  {
+    timeline: Array<{
+      date: string,           // ISO date string
+      platform: Platform,
+      caption: string,
+      suggestedTime: string   // e.g., "14:00"
+    }>
+  }
+  ```
+- **Webhook Integration Point**: Replace line 29-32 with:
+  ```typescript
+  const handleGeneratePlan = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('YOUR_N8N_TIMELINE_GENERATOR_WEBHOOK_URL', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandId: selectedBrandId,
+          existingPosts: brandPosts,
+          brandVoice: brands.find(b => b.id === selectedBrandId)?.brand_voice,
+          timeframe: 'next_30_days'
+        })
+      });
+      const data = await response.json();
+
+      // Process timeline and add posts
+      data.timeline.forEach((item, index) => {
+        const newPost: Post = {
+          id: `post_${Date.now()}_${index}`,
+          user_id: user.id,
+          brand_id: selectedBrandId,
+          caption: item.caption,
+          platform: item.platform,
+          status: 'draft',
+          scheduled_at: new Date(`${item.date}T${item.suggestedTime}`).toISOString(),
+          created_at: new Date().toISOString(),
+        };
+        addPost(newPost);
+      });
+    } catch (error) {
+      console.error('Error generating timeline:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  ```
+
+#### 5. **Approve** Button
+- **Location**: `src/components/views/QueueView.tsx` (line 33-37)
+- **Function**: `handleApprove()`
+- **Description**: Approves a draft post and schedules it for posting
+- **Note**: This updates the post status in Supabase. The N8N Auto-Post Scheduler will pick it up automatically
+
+#### 6. **Decline** Button
+- **Location**: `src/components/views/QueueView.tsx` (line 98)
+- **Function**: `declinePost()`
+- **Description**: Marks a post as declined
+- **Note**: No N8N webhook needed - handled locally
+
+#### 7. **Schedule Post** / **Save as Draft** Button (Manual Post Modal)
+- **Location**: `src/components/modals/AddManualPostModal.tsx` (line 28-49)
+- **Function**: `handleSubmit()`
+- **Description**: Creates a manual post with optional scheduling
+- **Note**: Saves directly to Supabase. Auto-posting handled by N8N Auto-Post Scheduler
+
+---
+
+### Summary of Required N8N Webhooks
+
+You need to create **3 main webhook endpoints** in N8N:
+
+1. **Content Generator Webhook** - For single post AI generation
+   - Used by: "Generate Post" button
+
+2. **Multi-Platform Generator Webhook** - For generating multiple posts across platforms
+   - Used by: "Generate Posts" button (in Generate Plan modal)
+
+3. **Timeline Generator Webhook** - For creating optimized posting schedules
+   - Used by: "Generate Timeline" button
+
+The **Auto-Post Scheduler** runs as a scheduled workflow (no webhook needed from frontend) and automatically posts content when `scheduled_at` time arrives.
 
 ### Step 5: Test the Integration
 
