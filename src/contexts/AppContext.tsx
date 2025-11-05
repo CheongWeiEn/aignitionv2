@@ -47,8 +47,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ));
   };
 
-  const addBrand = (brand: Brand) => {
-    setBrands(prev => [...prev, brand]);
+  const addBrand = async (brand: Brand) => {
+    try {
+      // 1️⃣ Update local state / mockData
+      setBrands(prev => [...prev, brand]);
+      mockBrands.push(brand);
+  
+      // 2️⃣ Send the new brand to n8n
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_BRAND, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: brand.user_id,
+          name: brand.name,
+          product_description: brand.product_description,
+          brand_voice: brand.brand_voice,
+        }),
+      });
+  
+      if (!res.ok) {
+        console.error('n8n webhook returned error:', res.status);
+        // Optionally: remove brand from state if n8n fails
+      } else {
+        const data = await res.json();
+        console.log('✅ n8n brand webhook response:', data);
+      }
+    } catch (err) {
+      console.error('❌ Failed to contact n8n webhook:', err);
+    }
   };
 
   const updateBrand = (id: string, updates: Partial<Brand>) => {
