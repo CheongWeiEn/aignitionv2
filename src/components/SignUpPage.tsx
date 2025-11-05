@@ -12,28 +12,39 @@ export function SignUpPage({ onToggleMode }: SignUpPageProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''); // Error handling state
   const { signup } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
+    setError(''); // Reset error message on each submit
+  
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-
+  
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-
+  
     setIsLoading(true);
+  
     try {
-      await signup(email, password, name);
-    } catch (error: any) {
-      setError(error.message || 'Sign up failed. Please try again.');
+      // Call signup from AuthContext
+      const success = await signup(email, password, name);
+  
+      if (success) {
+        // Redirect user on successful signup
+        window.location.href = '/home';
+      } else {
+        // If n8n returned failure
+        setError('Signup failed. Please try again or check your credentials.');
+      }
+    } catch (err: any) {
+      console.error('Signup failed:', err);
+      setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

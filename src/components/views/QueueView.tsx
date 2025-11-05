@@ -43,7 +43,7 @@ export function QueueView() {
   
     // 3️⃣ Send the post data to your n8n webhook
     try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL, {
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_APPROVE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
