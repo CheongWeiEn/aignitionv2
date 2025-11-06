@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Brand, Post } from '../types';
-import { mockBrands, mockPosts } from '../utils/mockData';
 
 interface AppContextType {
   brands: Brand[];
@@ -20,18 +19,23 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [brands, setBrands] = useState<Brand[]>(mockBrands);
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(mockBrands[0]?.id || null);
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
 
   const addPost = (post: Post) => setPosts(prev => [...prev, post]);
-  const updatePost = (id: string, updates: Partial<Post>) => setPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  const updatePost = (id: string, updates: Partial<Post>) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   const deletePost = (id: string) => setPosts(prev => prev.filter(p => p.id !== id));
-  const approvePost = (id: string, scheduledAt: string) => setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'approved', scheduled_at: scheduledAt } : p));
-  const declinePost = (id: string) => setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'declined' } : p));
+  const approvePost = (id: string, scheduledAt: string) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'approved', scheduled_at: scheduledAt } : p));
+  const declinePost = (id: string) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'declined' } : p));
   const addBrand = (brand: Brand) => setBrands(prev => [...prev, brand]);
-  const updateBrand = (id: string, updates: Partial<Brand>) => setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  const updateBrand = (id: string, updates: Partial<Brand>) =>
+    setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
 
+  // Load posts & brands from webhook
   const loadUserData = async (userId: string) => {
     try {
       const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL_FETCH_USER_DATA}`, {
@@ -39,23 +43,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId }),
       });
-
+  
       if (!res.ok) throw new Error(`Failed to load user data (${res.status})`);
       const data = await res.json();
       console.log('✅ Loaded user data:', data);
-
-      // Load posts & brands from n8n response
-      if (data.posts?.length > 0) setPosts(data.posts);
-      if (data.brands?.length > 0) {
-        setBrands(data.brands);
-        setSelectedBrandId(data.brands[0].id); // select first brand by default
-      }
+  
+      // ✅ Extract first element
+      const payload = data[0] || { posts: [], brands: [] };
+  
+      setPosts(payload.posts);
+      setBrands(payload.brands);
+      setSelectedBrandId(payload.brands[0]?.id || null);
+  
     } catch (err) {
       console.error('❌ Failed to load user data:', err);
     }
   };
+  
+  
 
-  // On mount, optionally load brands/posts from localStorage
+  // Load saved data from localStorage on mount (optional fallback)
   useEffect(() => {
     const savedPosts = localStorage.getItem('userPosts');
     const savedBrands = localStorage.getItem('userBrands');

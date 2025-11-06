@@ -17,40 +17,46 @@ export function LoginPage({ onToggleMode }: LoginPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-  
+
     try {
+      // 1️⃣ Login
       const loggedInUser = await login(email.trim(), password.trim());
       console.log('✅ Login successful:', loggedInUser);
-  
-      // Fetch posts & brands from n8n
+
+      // 2️⃣ Load posts & brands from n8n
       try {
         const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_FETCH_USER_DATA, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: loggedInUser.id }),
         });
-  
+
         if (!res.ok) throw new Error(`n8n responded with ${res.status}`);
         const data = await res.json();
         console.log('🪄 Received n8n user data:', data);
-  
-        // Store in localStorage
-        localStorage.setItem('userPosts', JSON.stringify(data.posts || []));
-        localStorage.setItem('userBrands', JSON.stringify(data.brands || []));
-  
+
+        // 3️⃣ Save posts & brands to localStorage for persistence
+        const payload = data[0] || { posts: [], brands: [] };
+        localStorage.setItem('userPosts', JSON.stringify(payload.posts));
+        localStorage.setItem('userBrands', JSON.stringify(payload.brands));
+
+        // 4️⃣ Load into context
+        await loadUserData(loggedInUser.id);
+
       } catch (fetchErr) {
         console.warn('⚠️ Could not fetch posts/brands:', fetchErr);
         alert('⚠️ Could not fetch your posts and brands. You can still continue with mock data.');
       }
-  
+
+      // 5️⃣ Redirect to dashboard
       window.location.href = '/dashboard';
+
     } catch (loginErr) {
       alert('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">

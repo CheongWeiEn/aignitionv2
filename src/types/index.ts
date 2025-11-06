@@ -1,34 +1,31 @@
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-}
-
 export interface Brand {
   id: string;
-  user_id: string;
   name: string;
   product_description: string;
   brand_voice: string;
-  created_at: string;
 }
-
-export type PostStatus = 'draft' | 'approved' | 'scheduled' | 'posted' | 'declined';
-
-export type Platform = 'linkedin' | 'instagram_feed' | 'instagram_story' | 'tiktok' | 'facebook';
 
 export interface Post {
   id: string;
   user_id: string;
   brand_id: string;
   caption: string;
-  platform: Platform;
-  status: PostStatus;
-  scheduled_at?: string;
-  posted_at?: string;
-  image_url?: string;
+  platform: 'linkedin' | 'instagram' | string;
+  status: 'draft' | 'approved' | 'declined' | string;
   created_at: string;
+  scheduled_at: string | null;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+
+export type PostStatus = 'draft' | 'approved' | 'scheduled' | 'posted' | 'declined';
+
+export type Platform = 'linkedin' | 'instagram_feed' | 'instagram_story' | 'tiktok' | 'facebook';
 
 export interface Trend {
   id: string;
