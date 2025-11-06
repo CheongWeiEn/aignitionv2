@@ -39,25 +39,46 @@ export function QueueView({ posts: externalPosts, setPosts, selectedBrandId }: Q
   };
 
   const handleApprove = async (postId: string) => {
-    const updatedPosts = externalPosts.map(p => p.id === postId ? { ...p, status: 'approved' } : p);
+    const updatedPosts = externalPosts.map(p => 
+      p.id === postId ? { ...p, status: 'approved' } : p
+    );
     setPosts(updatedPosts);
     localStorage.setItem("userPosts", JSON.stringify(updatedPosts));
-
+  
     const post = updatedPosts.find(p => p.id === postId);
     if (!post) return;
-
+  
     try {
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_APPROVE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...post, status: 'approved' }),
+        body: JSON.stringify({
+          id: post.id,
+          status: "approved",
+          brand_id: post.brand_id,
+          platform: post.platform,
+          caption: post.caption,
+          scheduled_at: post.scheduled_at || null,
+        }),
       });
-      if (!res.ok) console.error("n8n webhook returned error:", res.status);
-      else console.log("✅ n8n webhook response:", await res.json());
+  
+      if (!res.ok) {
+        console.error("❌ n8n webhook returned error:", res.status);
+        alert("Failed to update approval status.");
+        return;
+      }
+  
+      const data = await res.json();
+      console.log("✅ n8n webhook response:", data);
+  
+      // Optional: refresh posts from DB
+      // await fetchPostsFromDB();
+  
     } catch (err) {
       console.error("❌ Failed to contact n8n webhook:", err);
     }
   };
+  
 
   const handleDecline = (postId: string) => {
     const updatedPosts = externalPosts.map(p => p.id === postId ? { ...p, status: 'declined' } : p);

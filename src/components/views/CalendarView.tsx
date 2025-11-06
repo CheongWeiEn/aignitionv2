@@ -14,17 +14,28 @@ export function CalendarView() {
     (post.status === 'approved' || post.status === 'scheduled' || post.status === 'posted')
   );
 
-  const events = brandPosts.map(post => ({
-    id: post.id,
-    title: post.caption.substring(0, 50) + '...',
-    start: post.scheduled_at || post.posted_at,
-    backgroundColor: post.status === 'posted' ? '#10b981' : '#3b82f6',
-    borderColor: post.status === 'posted' ? '#10b981' : '#3b82f6',
-    extendedProps: {
-      platform: post.platform,
-      status: post.status,
+  const events = brandPosts.map(post => {
+    let color;
+    switch (post.status) {
+      case 'posted': color = '#10b981'; break; // green
+      case 'approved': color = '#3b82f6'; break; // blue
+      case 'scheduled': color = '#facc15'; break; // yellow
+      default: color = '#9ca3af'; // gray
     }
-  }));
+  
+    return {
+      id: post.id,
+      title: post.caption.substring(0, 50) + '...',
+      start: post.scheduled_at || post.posted_at,
+      backgroundColor: color,
+      borderColor: color,
+      extendedProps: {
+        platform: post.platform,
+        status: post.status,
+      },
+    };
+  });
+  
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
