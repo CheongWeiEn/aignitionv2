@@ -111,7 +111,7 @@ export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
       if (onPostCreated) onPostCreated(post);
 
       // 4️⃣ Send to n8n (database)
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_CREATE_POST, {
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SUBMIT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(post),

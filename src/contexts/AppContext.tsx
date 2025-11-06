@@ -31,7 +31,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'approved', scheduled_at: scheduledAt } : p));
   const declinePost = (id: string) =>
     setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'declined' } : p));
-  const addBrand = (brand: Brand) => setBrands(prev => [...prev, brand]);
+    
+  const addBrand = async (brand: Brand) => {
+    // 1️⃣ Immediately update UI
+    setBrands(prev => {
+      const updated = [...prev, brand];
+      localStorage.setItem('userBrands', JSON.stringify(updated));
+      return updated;
+    });
+  
+    // 2️⃣ Send new brand data to n8n webhook
+    try {
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_BRAND, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: brand.id,
+          user_id: brand.user_id,
+          name: brand.name,
+          product_description: brand.product_description,
+          brand_voice: brand.brand_voice,
+        }),
+      });
+  
+      if (!res.ok) {
+        console.error('❌ n8n webhook returned error:', res.status);
+        alert('Failed to save brand to database.');
+        return;
+      }
+  
+      const data = await res.json();
+      console.log('✅ Brand successfully sent to n8n:', data);
+  
+    } catch (err) {
+      console.error('❌ Failed to contact n8n webhook:', err);
+    }
+  };
+  
   const updateBrand = (id: string, updates: Partial<Brand>) =>
     setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
 
