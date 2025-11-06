@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Brand, Post } from '../types';
 import { mockBrands, mockPosts } from '../utils/mockData';
 
@@ -25,62 +25,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>(mockPosts);
 
   const addPost = (post: Post) => setPosts(prev => [...prev, post]);
-  const updatePost = (id: string, updates: Partial<Post>) =>
-    setPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  const updatePost = (id: string, updates: Partial<Post>) => setPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   const deletePost = (id: string) => setPosts(prev => prev.filter(p => p.id !== id));
-  const approvePost = (id: string, scheduledAt: string) =>
-    setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'approved', scheduled_at: scheduledAt } : p));
-  const declinePost = (id: string) =>
-    setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'declined' } : p));
-
-  const addBrand = async (brand: Brand) => {
-    setBrands(prev => [...prev, brand]);
-    try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_BRAND, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: brand.user_id,
-          name: brand.name,
-          product_description: brand.product_description,
-          brand_voice: brand.brand_voice,
-        }),
-      });
-      if (!res.ok) console.error('n8n webhook returned error:', res.status);
-      else console.log('✅ n8n brand webhook response:', await res.json());
-    } catch (err) {
-      console.error('❌ Failed to contact n8n webhook:', err);
-    }
-  };
-
-  const updateBrand = (id: string, updates: Partial<Brand>) =>
-    setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  const approvePost = (id: string, scheduledAt: string) => setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'approved', scheduled_at: scheduledAt } : p));
+  const declinePost = (id: string) => setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'declined' } : p));
+  const addBrand = (brand: Brand) => setBrands(prev => [...prev, brand]);
+  const updateBrand = (id: string, updates: Partial<Brand>) => setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
 
   const loadUserData = async (userId: string) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL_USERDATA}?user_id=${userId}`);
-      if (!res.ok) throw new Error(`Failed to load user data (${res.status})`);
+      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL_FETCH_USER_DATA}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      });
 
+      if (!res.ok) throw new Error(`Failed to load user data (${res.status})`);
       const data = await res.json();
       console.log('✅ Loaded user data:', data);
 
-      if (data.brands?.length > 0) {
-        const normalizedBrands = data.brands.map((b: any) => ({
-          id: b.id,
-          name: b.name,
-          product_description: b.product_description || '',
-          brand_voice: b.brand_voice || '',
-        }));
-        setBrands(normalizedBrands);
-        setSelectedBrandId(normalizedBrands[0].id);
-      }
-
+      // Load posts & brands from n8n response
       if (data.posts?.length > 0) setPosts(data.posts);
-
+      if (data.brands?.length > 0) {
+        setBrands(data.brands);
+        setSelectedBrandId(data.brands[0].id); // select first brand by default
+      }
     } catch (err) {
       console.error('❌ Failed to load user data:', err);
     }
   };
+
+  // On mount, optionally load brands/posts from localStorage
+  useEffect(() => {
+    const savedPosts = localStorage.getItem('userPosts');
+    const savedBrands = localStorage.getItem('userBrands');
+    if (savedPosts) setPosts(JSON.parse(savedPosts));
+    if (savedBrands) {
+      const brandsData: Brand[] = JSON.parse(savedBrands);
+      setBrands(brandsData);
+      setSelectedBrandId(brandsData[0]?.id || null);
+    }
+  }, []);
 
   return (
     <AppContext.Provider value={{
