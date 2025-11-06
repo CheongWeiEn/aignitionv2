@@ -68,9 +68,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     window.location.href = '/';
   };
 
+  // inside AuthContext.tsx or wherever your signup function is defined
   const signup = async (email: string, password: string, name: string) => {
-    // implement signup workflow if needed
+    try {
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SIGNUP, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      if (!res.ok) {
+        console.error('❌ n8n signup request failed with status', res.status);
+        return false;
+      }
+
+      const data = await res.json();
+      console.log('🪄 n8n signup response:', data);
+
+      // Check for "success": "1"
+      if (data.success === "1") {
+        return true; // signup succeeded
+      } else {
+        console.warn('⚠️ Signup failed, n8n returned success:', data.success);
+        return false;
+      }
+    } catch (err) {
+      console.error('❌ Signup error:', err);
+      return false;
+    }
   };
+
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, login, logout, signup }}>
