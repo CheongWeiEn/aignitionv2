@@ -33,11 +33,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!res.ok) throw new Error(`n8n login returned ${res.status}`);
-
       const data = await res.json();
       console.log('Login webhook response:', data);
 
-      // Deny access if username/userId = "0"
       if (data.username === '0' || data.userId === '0') {
         setUser(null);
         setIsAuthenticated(false);
@@ -57,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return loggedInUser;
     } catch (err) {
       console.error('Login failed:', err);
-      throw err; // only for invalid credentials or network failure
+      throw err;
     }
   };
 

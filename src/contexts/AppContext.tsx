@@ -14,6 +14,7 @@ interface AppContextType {
   declinePost: (id: string) => void;
   addBrand: (brand: Brand) => void;
   updateBrand: (id: string, updates: Partial<Brand>) => void;
+  loadUserData: (userId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -23,37 +24,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(mockBrands[0]?.id || null);
   const [posts, setPosts] = useState<Post[]>(mockPosts);
 
-  const addPost = (post: Post) => {
-    setPosts(prev => [...prev, post]);
-  };
-
-  const updatePost = (id: string, updates: Partial<Post>) => {
-    setPosts(prev => prev.map(post => post.id === id ? { ...post, ...updates } : post));
-  };
-
-  const deletePost = (id: string) => {
-    setPosts(prev => prev.filter(post => post.id !== id));
-  };
-
-  const approvePost = (id: string, scheduledAt: string) => {
-    setPosts(prev => prev.map(post =>
-      post.id === id ? { ...post, status: 'approved', scheduled_at: scheduledAt } : post
-    ));
-  };
-
-  const declinePost = (id: string) => {
-    setPosts(prev => prev.map(post =>
-      post.id === id ? { ...post, status: 'declined' } : post
-    ));
-  };
+  const addPost = (post: Post) => setPosts(prev => [...prev, post]);
+  const updatePost = (id: string, updates: Partial<Post>) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  const deletePost = (id: string) => setPosts(prev => prev.filter(p => p.id !== id));
+  const approvePost = (id: string, scheduledAt: string) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'approved', scheduled_at: scheduledAt } : p));
+  const declinePost = (id: string) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'declined' } : p));
 
   const addBrand = async (brand: Brand) => {
+    setBrands(prev => [...prev, brand]);
     try {
-      // 1️⃣ Update local state / mockData
-      setBrands(prev => [...prev, brand]);
-      mockBrands.push(brand);
-  
-      // 2️⃣ Send the new brand to n8n
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_BRAND, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,40 +46,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
           brand_voice: brand.brand_voice,
         }),
       });
-  
-      if (!res.ok) {
-        console.error('n8n webhook returned error:', res.status);
-        // Optionally: remove brand from state if n8n fails
-      } else {
-        const data = await res.json();
-        console.log('✅ n8n brand webhook response:', data);
-      }
+      if (!res.ok) console.error('n8n webhook returned error:', res.status);
+      else console.log('✅ n8n brand webhook response:', await res.json());
     } catch (err) {
       console.error('❌ Failed to contact n8n webhook:', err);
     }
   };
 
-  const updateBrand = (id: string, updates: Partial<Brand>) => {
-    setBrands(prev => prev.map(brand => brand.id === id ? { ...brand, ...updates } : brand));
-  };
+  const updateBrand = (id: string, updates: Partial<Brand>) =>
+    setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
 
   const loadUserData = async (userId: string) => {
     try {
       const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL_USERDATA}?user_id=${userId}`);
       if (!res.ok) throw new Error(`Failed to load user data (${res.status})`);
-  
+
       const data = await res.json();
-      console.log("✅ Loaded user data:", data);
-  
-      if (data.brands?.length > 0) setBrands(data.brands);
+      console.log('✅ Loaded user data:', data);
+
+      if (data.brands?.length > 0) {
+        const normalizedBrands = data.brands.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          product_description: b.product_description || '',
+          brand_voice: b.brand_voice || '',
+        }));
+        setBrands(normalizedBrands);
+        setSelectedBrandId(normalizedBrands[0].id);
+      }
+
       if (data.posts?.length > 0) setPosts(data.posts);
-  
+
     } catch (err) {
-      console.error("❌ Failed to load user data:", err);
-      // Fallback to mock data
+      console.error('❌ Failed to load user data:', err);
     }
   };
-  
+
   return (
     <AppContext.Provider value={{
       brands,
@@ -108,9 +92,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatePost,
       deletePost,
       approvePost,
+      declinePost,
       addBrand,
       updateBrand,
-      loadUserData, // 👈 add this
+      loadUserData,
     }}>
       {children}
     </AppContext.Provider>
@@ -119,8 +104,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within AppProvider');
-  }
+  if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 }
