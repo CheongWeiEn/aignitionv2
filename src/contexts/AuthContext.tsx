@@ -1,169 +1,82 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { User } from '../types';
-import { user as mockUser } from '../utils/mockData';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
-  signup: (email: string, password: string, name: string) => Promise<void>;  // Add signup
+  signup: (email: string, password: string, name: string) => Promise<void>;
 }
-
-const STORAGE_KEY = 'app_session_v1';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-type StoredSession = {
-  user: User;
-  expiry: number;
-  isTemp?: boolean;
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!user);
 
-  const isSessionValid = (s: StoredSession | null) => {
-    if (!s) return false;
-    return typeof s.expiry === 'number' && Date.now() < s.expiry;
-  };
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const session: StoredSession = JSON.parse(raw);
-      if (isSessionValid(session)) {
-        setUser(session.user);
-        mockUser.id = session.user.id;
-        mockUser.email = session.user.email;
-        mockUser.name = session.user.name;
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    } catch (err) {
-      console.error('Failed to restore session:', err);
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-  
-      if (!res.ok) {
-        throw new Error(`Login request failed with status ${res.status}`);
-      }
-  
+
+      if (!res.ok) throw new Error(`n8n login returned ${res.status}`);
+
       const data = await res.json();
-  
-      // Check webhook response
-      if (!data.username || data.username === '0') {
+      console.log('Login webhook response:', data);
+
+      // Deny access if username/userId = "0"
+      if (data.username === '0' || data.userId === '0') {
+        setUser(null);
+        setIsAuthenticated(false);
         throw new Error('Invalid credentials');
       }
-  
-      // Create the user session
-      const realUser: User = {
+
+      const loggedInUser: User = {
         id: data.userId,
-        email,
         name: data.username,
+        email,
       };
-  
-      const REAL_TTL_MS = 1000 * 60 * 60 * 8; // 8 hours
-      const session: StoredSession = {
-        user: realUser,
-        expiry: Date.now() + REAL_TTL_MS,
-        isTemp: false,
-      };
-  
-      setUser(realUser);
-      mockUser.id = realUser.id;
-      mockUser.email = realUser.email;
-      mockUser.name = realUser.name;
-  
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  
-      // Return true if needed
-      return true;
-  
+
+      setUser(loggedInUser);
+      setIsAuthenticated(true);
+      localStorage.setItem('user', JSON.stringify(loggedInUser));
+
+      return loggedInUser;
     } catch (err) {
       console.error('Login failed:', err);
-      throw err; // propagate error to component
+      throw err; // only for invalid credentials or network failure
     }
   };
-  
-
-  const signup = async (email: string, password: string, name: string) => {
-    try {
-      // Send signup data to the n8n webhook
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SIGNUP, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: name,
-          email: email,
-          password: password,
-        }),
-      });
-  
-      const data = await res.json();
-  
-      if (data.success === 1) {
-        // User credentials were validated and added to the database
-        const newUser: User = {
-          id: data.userId || 'new_user_id', // adjust if your backend sends userId
-          email,
-          name,
-        };
-  
-        const session: StoredSession = {
-          user: newUser,
-          expiry: Date.now() + 1000 * 60 * 60 * 8, // 8 hours
-        };
-  
-        // Update React state and mockUser
-        setUser(newUser);
-        mockUser.id = newUser.id;
-        mockUser.email = newUser.email;
-        mockUser.name = newUser.name;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  
-        // Indicate success to caller
-        return true;
-      } else if (data.success === 0) {
-        // n8n returned 0, signup failed
-        return false;
-      } else {
-        throw new Error('Unexpected response from signup workflow');
-      }
-    } catch (err) {
-      console.error('Signup failed:', err);
-      throw err; // propagate error to component
-    }
-  };
-  
 
   const logout = () => {
     setUser(null);
-    mockUser.id = 'user_1';
-    mockUser.email = 'demo@example.com';
-    mockUser.name = 'Demo User';
-    localStorage.removeItem(STORAGE_KEY);
+    setIsAuthenticated(false);
+    localStorage.removeItem('user');
+    localStorage.removeItem('userPosts');
+    localStorage.removeItem('userBrands');
+    window.location.href = '/';
+  };
+
+  const signup = async (email: string, password: string, name: string) => {
+    // implement signup workflow if needed
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, signup }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, signup }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
-}
+};

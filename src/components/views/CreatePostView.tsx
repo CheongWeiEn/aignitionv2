@@ -4,7 +4,11 @@ import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Platform, Post } from '../../types';
 
-export function CreatePostView() {
+interface CreatePostViewProps {
+  onPostCreated?: (post: Post) => void;
+}
+
+export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
   const { selectedBrandId, addPost, brands } = useApp();
   const { user } = useAuth();
   const [mode, setMode] = useState<'generate' | 'custom'>('generate');
@@ -30,13 +34,12 @@ export function CreatePostView() {
     { value: 'facebook', label: 'Facebook' },
   ];
 
-  // MUST RETURN JSON (caption kvp)
+  // AI Generate Post
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBrandId || !user) return;
-  
+
     setIsGenerating(true);
-  
     try {
       const payload = {
         prompt: generatePrompt,
@@ -49,26 +52,25 @@ export function CreatePostView() {
           email: user.email,
         },
       };
-  
+
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_GENERATE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-  
+
       if (!res.ok) throw new Error(`n8n responded with ${res.status}`);
-  
       const data = await res.json();
       console.log("n8n generate response:", data);
-  
+
       const aiGeneratedCaption =
         data.caption ||
-        `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions. Join us on this exciting journey!`;
-  
+        `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions.`;
+
       setMode("custom");
       setCustomCaption(aiGeneratedCaption);
       setCustomPlatform(generatePlatform);
-  
+
     } catch (err) {
       console.error("Error calling n8n generate:", err);
       alert("❌ Failed to contact n8n generate workflow.");
@@ -76,66 +78,67 @@ export function CreatePostView() {
       setIsGenerating(false);
     }
   };
-  
 
+  // Save Post
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBrandId || !user) return;
-  
+
     setIsSubmitting(true);
-  
     try {
-      const scheduledAt =
-        scheduledDate && scheduledTime
-          ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
-          : undefined;
-  
-      const newPost: Post = {
+      const post: Post = {
         id: `post_${Date.now()}`,
         user_id: user.id,
         brand_id: selectedBrandId,
-        caption: customCaption,
-        platform: customPlatform,
-        status: scheduledAt ? "approved" : "draft",
-        scheduled_at: scheduledAt,
+        caption: mode === 'generate' ? generatePrompt : customCaption,
+        platform: mode === 'generate' ? generatePlatform : customPlatform,
+        status: 'draft',
         created_at: new Date().toISOString(),
+        scheduled_at: scheduledDate && scheduledTime
+          ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+          : undefined,
       };
-  
-      // Save locally first
-      addPost(newPost);
-  
-      // Send to n8n webhook
-      const formData = new FormData();
-      formData.append("post", JSON.stringify(newPost));
-      if (imageFile) formData.append("image", imageFile);
-  
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SUBMIT, {
-        method: "POST",
-        body: formData,
+
+      // 1️⃣ Save locally in AppContext (Dashboard state)
+      addPost(post);
+
+      // 2️⃣ Save to localStorage for persistence
+      const storedPosts = localStorage.getItem("userPosts");
+      const postsArray = storedPosts ? JSON.parse(storedPosts) : [];
+      localStorage.setItem("userPosts", JSON.stringify([...postsArray, post]));
+
+      // 3️⃣ Notify Dashboard (optional callback)
+      if (onPostCreated) onPostCreated(post);
+
+      // 4️⃣ Send to n8n (database)
+      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_CREATE_POST, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post),
       });
-  
-      if (!res.ok) throw new Error(`n8n responded with ${res.status}`);
-  
+
+      if (!res.ok) throw new Error(`n8n returned ${res.status}`);
       const data = await res.json();
-      console.log("n8n submit response:", data);
-  
-      alert(data.reply || "✅ Post submitted successfully!");
-  
-      // Reset form
-      setCustomCaption("");
-      setScheduledDate("");
-      setScheduledTime("");
+      console.log('✅ Post saved to database:', data);
+
+      // 5️⃣ Reset form
+      setCustomCaption('');
+      setGeneratePrompt('');
+      setScheduledDate('');
+      setScheduledTime('');
       setImageFile(null);
-      setGeneratePrompt("");
-      setMode("generate");
-  
+
+      // Switch back to AI generate mode
+      setMode('generate');
+
     } catch (err) {
-      console.error("Error submitting post:", err);
-      alert("❌ Failed to contact n8n submit workflow.");
+      console.error('❌ Failed to save post:', err);
+      alert('Error creating post');
     } finally {
       setIsSubmitting(false);
     }
   };
+  
   
 
   return (

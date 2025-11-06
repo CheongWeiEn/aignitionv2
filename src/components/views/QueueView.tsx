@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import { CheckCircle, XCircle, Clock, CheckCheck, Send } from 'lucide-react';
-import { useApp } from '../../contexts/AppContext';
-import { PostStatus } from '../../types';
+import { Post, PostStatus } from '../../types';
 
-export function QueueView() {
-  const { posts, selectedBrandId, approvePost, declinePost } = useApp();
+interface QueueViewProps {
+  posts: Post[];
+  setPosts: React.Dispatch<React.SetStateAction<Post[]>>;
+  selectedBrandId?: string;
+}
+
+export function QueueView({ posts: externalPosts, setPosts, selectedBrandId }: QueueViewProps) {
   const [filter, setFilter] = useState<PostStatus | 'all'>('all');
 
-  const brandPosts = posts.filter(post => post.brand_id === selectedBrandId);
+  // Filter posts by selected brand
+  const brandPosts = selectedBrandId
+    ? externalPosts.filter(post => post.brand_id === selectedBrandId)
+    : externalPosts;
+
   const filteredPosts = filter === 'all'
     ? brandPosts
     : brandPosts.filter(post => post.status === filter);
@@ -31,43 +39,30 @@ export function QueueView() {
   };
 
   const handleApprove = async (postId: string) => {
-    const scheduledAt = new Date();
-    scheduledAt.setDate(scheduledAt.getDate() + 1);
-  
-    // 1️⃣ Run your existing local approve logic
-    approvePost(postId, scheduledAt.toISOString());
-  
-    // 2️⃣ Get the post data to send to n8n
-    const post = posts.find(p => p.id === postId);
+    const updatedPosts = externalPosts.map(p => p.id === postId ? { ...p, status: 'approved' } : p);
+    setPosts(updatedPosts);
+    localStorage.setItem("userPosts", JSON.stringify(updatedPosts));
+
+    const post = updatedPosts.find(p => p.id === postId);
     if (!post) return;
-  
-    // 3️⃣ Send the post data to your n8n webhook
+
     try {
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_APPROVE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postId: post.id,
-          caption: post.caption,
-          platform: post.platform,
-          brand_id: post.brand_id,
-          scheduled_at: scheduledAt.toISOString(),
-          status: "approved"
-        }),
+        body: JSON.stringify({ ...post, status: 'approved' }),
       });
-  
-      // 4️⃣ Handle response
-      if (!res.ok) {
-        console.error("n8n webhook returned error:", res.status);
-        return;
-      }
-  
-      const data = await res.json();
-      console.log("✅ n8n webhook response:", data);
-  
-    } catch (error) {
-      console.error("❌ Failed to contact n8n webhook:", error);
+      if (!res.ok) console.error("n8n webhook returned error:", res.status);
+      else console.log("✅ n8n webhook response:", await res.json());
+    } catch (err) {
+      console.error("❌ Failed to contact n8n webhook:", err);
     }
+  };
+
+  const handleDecline = (postId: string) => {
+    const updatedPosts = externalPosts.map(p => p.id === postId ? { ...p, status: 'declined' } : p);
+    setPosts(updatedPosts);
+    localStorage.setItem("userPosts", JSON.stringify(updatedPosts));
   };
 
   return (
@@ -125,15 +120,13 @@ export function QueueView() {
                     onClick={() => handleApprove(post.id)}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Approve
+                    <CheckCircle className="w-4 h-4" /> Approve
                   </button>
                   <button
-                    onClick={() => declinePost(post.id)}
+                    onClick={() => handleDecline(post.id)}
                     className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
                   >
-                    <XCircle className="w-4 h-4" />
-                    Decline
+                    <XCircle className="w-4 h-4" /> Decline
                   </button>
                 </div>
               )}

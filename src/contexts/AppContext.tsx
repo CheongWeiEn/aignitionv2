@@ -81,6 +81,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBrands(prev => prev.map(brand => brand.id === id ? { ...brand, ...updates } : brand));
   };
 
+  const loadUserData = async (userId: string) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL_USERDATA}?user_id=${userId}`);
+      if (!res.ok) throw new Error(`Failed to load user data (${res.status})`);
+  
+      const data = await res.json();
+      console.log("✅ Loaded user data:", data);
+  
+      if (data.brands?.length > 0) setBrands(data.brands);
+      if (data.posts?.length > 0) setPosts(data.posts);
+  
+    } catch (err) {
+      console.error("❌ Failed to load user data:", err);
+      // Fallback to mock data
+    }
+  };
+  
   return (
     <AppContext.Provider value={{
       brands,
@@ -91,9 +108,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatePost,
       deletePost,
       approvePost,
-      declinePost,
       addBrand,
       updateBrand,
+      loadUserData, // 👈 add this
     }}>
       {children}
     </AppContext.Provider>
