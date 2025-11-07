@@ -78,64 +78,82 @@ export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
   
 
   // Save Post
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedBrandId || !user) return;
+  // Save Post
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!selectedBrandId || !user) return;
 
-    setIsSubmitting(true);
-    try {
-      const post: Post = {
-        id: `post_${Date.now()}`,
-        user_id: user.id,
-        brand_id: selectedBrandId,
-        caption: mode === 'generate' ? generatePrompt : customCaption,
-        platform: mode === 'generate' ? generatePlatform : customPlatform,
-        status: 'draft',
-        created_at: new Date().toISOString(),
-        scheduled_at: scheduledDate && scheduledTime
-          ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
-          : undefined,
-      };
+  setIsSubmitting(true);
+  try {
+    const post: Post = {
+      id: `post_${Date.now()}`,
+      user_id: user.id,
+      brand_id: selectedBrandId,
+      caption: mode === 'generate' ? generatePrompt : customCaption,
+      platform: mode === 'generate' ? generatePlatform : customPlatform,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+      scheduled_at: scheduledDate && scheduledTime
+        ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+        : undefined,
+      // We'll later attach campaign_id here if available
+    };
 
-      // 1️⃣ Save locally in AppContext (Dashboard state)
-      addPost(post);
+    // 1️⃣ Save locally (temporary)
+    addPost(post);
 
-      // 2️⃣ Save to localStorage for persistence
-      const storedPosts = localStorage.getItem("userPosts");
-      const postsArray = storedPosts ? JSON.parse(storedPosts) : [];
-      localStorage.setItem("userPosts", JSON.stringify([...postsArray, post]));
+    // 2️⃣ Save to localStorage (temporary)
+    const storedPosts = localStorage.getItem("userPosts");
+    const postsArray = storedPosts ? JSON.parse(storedPosts) : [];
+    localStorage.setItem("userPosts", JSON.stringify([...postsArray, post]));
 
-      // 3️⃣ Notify Dashboard (optional callback)
-      if (onPostCreated) onPostCreated(post);
+    // 3️⃣ Notify Dashboard (optional callback)
+    if (onPostCreated) onPostCreated(post);
 
-      // 4️⃣ Send to n8n (database)
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SUBMIT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(post),
-      });
+    // 4️⃣ Send to n8n (database)
+    const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SUBMIT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(post),
+    });
 
-      if (!res.ok) throw new Error(`n8n returned ${res.status}`);
-      const data = await res.json();
-      console.log('✅ Post saved to database:', data);
+    if (!res.ok) throw new Error(`n8n returned ${res.status}`);
+    const data = await res.json();
+    console.log('✅ Post saved to database:', data);
 
-      // 5️⃣ Reset form
-      setCustomCaption('');
-      setGeneratePrompt('');
-      setScheduledDate('');
-      setScheduledTime('');
-      setImageFile(null);
+    // 5️⃣ If n8n returned a campaign_id, merge it back into local state
+    if (data.campaign_id) {
+      const updatedPost = { ...post, campaign_id: data.campaign_id };
 
-      // Switch back to AI generate mode
-      setMode('generate');
+      // Update AppContext + localStorage with campaign_id included
+      addPost(updatedPost);
 
-    } catch (err) {
-      console.error('❌ Failed to save post:', err);
-      alert('Error creating post');
-    } finally {
-      setIsSubmitting(false);
+      const updatedPosts = postsArray.map(p =>
+        p.id === post.id ? updatedPost : p
+      );
+      localStorage.setItem("userPosts", JSON.stringify(updatedPosts));
+
+      console.log(`🎯 Campaign ID assigned: ${data.campaign_id}`);
     }
-  };
+
+    // 6️⃣ Reset form
+    setCustomCaption('');
+    setGeneratePrompt('');
+    setScheduledDate('');
+    setScheduledTime('');
+    setImageFile(null);
+
+    // Switch back to AI generate mode
+    setMode('generate');
+
+  } catch (err) {
+    console.error('❌ Failed to save post:', err);
+    alert('Error creating post');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
   
   
 

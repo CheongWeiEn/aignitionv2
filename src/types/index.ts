@@ -14,6 +14,7 @@ export interface Post {
   status: 'draft' | 'approved' | 'declined' | string;
   created_at: string;
   scheduled_at: string | null;
+  campaign_id?: string;
 }
 
 export interface User {
