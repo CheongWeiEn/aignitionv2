@@ -51,7 +51,7 @@ export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
       formData.append("user_email", user.email);
       if (imageFile) formData.append("image", imageFile);
   
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_GENERATE, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/generate-post", {
         method: "POST",
         body: formData,
       });
@@ -111,7 +111,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (onPostCreated) onPostCreated(post);
 
     // 4️⃣ Send to n8n (database)
-    const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SUBMIT, {
+    const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/create-post", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(post),

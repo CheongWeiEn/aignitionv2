@@ -49,7 +49,7 @@ export function QueueView({ posts: externalPosts, setPosts, selectedBrandId }: Q
     if (!post) return;
   
     try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_APPROVE, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/approved-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -91,7 +91,7 @@ export function QueueView({ posts: externalPosts, setPosts, selectedBrandId }: Q
   
     // 3️⃣ Send decline update to n8n webhook
     try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_APPROVE, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/approved-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

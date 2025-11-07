@@ -25,7 +25,7 @@ export function LoginPage({ onToggleMode }: LoginPageProps) {
 
       // 2️⃣ Load posts & brands from n8n
       try {
-        const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_FETCH_USER_DATA, {
+        const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/return-brand-post-data", {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: loggedInUser.id }),

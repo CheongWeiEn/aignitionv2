@@ -42,7 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
     // 2️⃣ Send new brand data to n8n webhook
     try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_BRAND, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/add-brand", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,7 +74,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load posts & brands from webhook
   const loadUserData = async (userId: string) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_URL_FETCH_USER_DATA}`, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/return-brand-post-data", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId }),

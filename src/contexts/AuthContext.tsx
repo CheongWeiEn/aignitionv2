@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<User> => {
     try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_LOGIN, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/login-credentials", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // inside AuthContext.tsx or wherever your signup function is defined
   const signup = async (email: string, password: string, name: string) => {
     try {
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_SIGNUP, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/signup", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name }),

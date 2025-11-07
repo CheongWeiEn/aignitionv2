@@ -41,7 +41,7 @@ export default function GenerateWithAI({ onClose }: { onClose: () => void }) {
       if (imageFile) formData.append("image", imageFile);
   
       // call your n8n webhook
-      const response = await fetch(VITE_N8N_WEBHOOK_URL_GENERATE, {
+      const response = await fetch("https://hongyiii.app.n8n.cloud/webhook/generate-post", {
         method: "POST",
         body: formData,
       });

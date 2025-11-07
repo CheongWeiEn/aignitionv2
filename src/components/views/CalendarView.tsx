@@ -56,7 +56,7 @@ export function CalendarView() {
       };
 
       // Send to n8n
-      const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_PLAN, {
+      const res = await fetch("https://hongyiii.app.n8n.cloud/webhook/generate-timeline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
