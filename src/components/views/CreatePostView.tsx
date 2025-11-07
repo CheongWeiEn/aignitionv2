@@ -38,39 +38,36 @@ export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBrandId || !user) return;
-
+  
     setIsGenerating(true);
     try {
-      const payload = {
-        prompt: generatePrompt,
-        platform: generatePlatform,
-        brand: selectedBrand?.name,
-        brandId: selectedBrandId,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-        },
-      };
-
+      const formData = new FormData();
+      formData.append("prompt", generatePrompt);
+      formData.append("platform", generatePlatform);
+      formData.append("brand", selectedBrand?.name || "");
+      formData.append("brandId", selectedBrandId);
+      formData.append("user_id", user.id);
+      formData.append("user_name", user.name);
+      formData.append("user_email", user.email);
+      if (imageFile) formData.append("image", imageFile);
+  
       const res = await fetch(import.meta.env.VITE_N8N_WEBHOOK_URL_GENERATE, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       });
-
+  
       if (!res.ok) throw new Error(`n8n responded with ${res.status}`);
       const data = await res.json();
       console.log("n8n generate response:", data);
-
+  
       const aiGeneratedCaption =
         data.caption ||
         `🚀 ${generatePrompt} - ${selectedBrand?.name} is leading the way with innovative solutions.`;
-
+  
       setMode("custom");
       setCustomCaption(aiGeneratedCaption);
       setCustomPlatform(generatePlatform);
-
+  
     } catch (err) {
       console.error("Error calling n8n generate:", err);
       alert("❌ Failed to contact n8n generate workflow.");
@@ -78,6 +75,7 @@ export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
       setIsGenerating(false);
     }
   };
+  
 
   // Save Post
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,6 +208,37 @@ export function CreatePostView({ onPostCreated }: CreatePostViewProps) {
                   </option>
                 ))}
               </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Upload Image
+              </label>
+              <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  id="generate-post-image-upload"
+                />
+                <label htmlFor="generate-post-image-upload" className="cursor-pointer">
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {imageFile ? imageFile.name : 'Click to upload or drag and drop'}
+                  </p>
+                  {imageFile && (
+                    <img
+                      src={URL.createObjectURL(imageFile)}
+                      alt="Preview"
+                      className="mt-3 max-h-40 mx-auto rounded-lg object-cover"
+                    />
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                    Image will be included in AI generation
+                  </p>
+                </label>
+              </div>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
